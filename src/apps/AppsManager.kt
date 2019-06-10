@@ -22,13 +22,34 @@ class AppsManager {
         return apps.keys.contains(appId)
     }
 
-    fun setAppState(appId: String, state: String) {
+    fun getAppState(appId: String): String {
+        return apps[appId]!!.data.state
+    }
+
+    fun setAppState(appId: String, action: String): Boolean {
+
+        var success = false
         val app = apps[appId]!!
 
-        if (state == App.State.RUNNING && app.data.state != App.State.RUNNING) {
-            app.updateState(state)
+        if (action == Action.CLONE && app.data.state == App.State.NEW) {
+            app.updateState(App.State.CLONING)
+            app.clone()
+            success = true
+        } else if (action == Action.START && (app.data.state == App.State.BUILT || app.data.state == App.State.FINISHED)) {
+            app.updateState(App.State.RUNNING)
             app.run()
+            success = true
+        } else if (action == Action.BUILD && app.data.state == App.State.CLONED) {
+            app.updateState(App.State.BUILDING)
+            app.build()
+            success = true
+        } else if (action == Action.STOP && app.data.state == App.State.RUNNING) {
+            app.updateState(App.State.RUNNING)
+            app.stop()
+            success = true
         }
+
+        return success
     }
 
     fun setCommands(appId: String, commands: App.AppData.Commands) {
@@ -80,27 +101,30 @@ class AppsManager {
 
             if (app.data.state == App.State.NEW) {
                 app.clone()
-            } else if (app.data.state == App.State.CLONED ||
+            } else if (
+                app.data.state == App.State.CLONED ||
                 app.data.state == App.State.BUILDING
             ) {
                 app.build()
-                //app.run()
+                app.run()
             } else if (
                 app.data.state == App.State.BUILT ||
                 app.data.state == App.State.FINISHED ||
                 app.data.state == App.State.RUNNING
             ) {
-                //app.run()
+                app.run()
             }
         }
     }
 
-    fun newTag(appId: String, tag: String, cloneUrl: String) {
+    fun newVersion(appId: String, tag: String, cloneUrl: String) {
 
         val appDir = "$appsDir/$appId"
         val appDirSources = "$appDir/sources"
 
-        if (!fileSystem.exists(appDir)) {
+        if (apps.containsKey(appId)) {
+            println("update version...")
+        } else {
             val state = App.AppData(appId, tag, appDir, appDirSources, cloneUrl)
 
             val app = App(state)
@@ -110,6 +134,15 @@ class AppsManager {
             app.clone()
             app.build()
             app.run()
+        }
+    }
+
+    class Action {
+        companion object {
+            const val BUILD = "build"
+            const val START = "start"
+            const val STOP = "stop"
+            const val CLONE = "clone"
         }
     }
 }

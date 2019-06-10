@@ -1,8 +1,6 @@
 package com.elevenetc
 
-import com.elevenetc.bodies.AppId
-import com.elevenetc.bodies.SetCommands
-import com.elevenetc.bodies.SetEnvVars
+import com.elevenetc.bodies.*
 import com.elevenetc.projects.AppsManager
 import io.ktor.application.Application
 import io.ktor.application.call
@@ -45,13 +43,32 @@ fun Application.module() {
         post("/web-hooks/github") {
             logger.log("request", call.request.path())
             val tag = call.receive(GitHubTag::class)
-            appsManager.newTag(tag.full_name, tag.ref, tag.repository.clone_url)
-
             call.respond(HttpStatusCode.OK)
+
+            if (tag.ref.startsWith("release-")) {
+                appsManager.newVersion(tag.full_name, tag.ref, tag.repository.clone_url)
+            } else {
+                logger.log("skip-tag", tag.ref)
+            }
         }
 
         post("/apps/state") {
-            val body = call.receive(AppId::class)
+
+            val body = call.receive(SetState::class)
+            val appId = body.appId
+
+            if (appsManager.contains(appId)) {
+                val success = appsManager.setAppState(appId, body.action)
+
+                if (success) {
+                    call.respond(HttpStatusCode.OK)
+                } else {
+                    call.respond(HttpStatusCode.BadRequest, FailedAction(body.action, appsManager.getAppState(appId)))
+                }
+
+            } else {
+                call.respond(HttpStatusCode.NotFound)
+            }
         }
 
         post("/apps/sources/delete") {

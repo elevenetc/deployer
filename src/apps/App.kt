@@ -10,10 +10,6 @@ class App(val data: AppData) {
     private val logger = Logger(data.appDir, "app-logs.txt")
     private val fileSystem = FileSystem()
 
-    init {
-
-    }
-
     fun clone() {
         updateState(State.CLONING)
         runCommand("git clone --branch ${data.tag} ${data.cloneUrl} --depth 1")
