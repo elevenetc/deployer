@@ -1,5 +1,6 @@
 package com.elevenetc
 
+import com.elevenetc.bodies.AppId
 import com.elevenetc.bodies.SetCommands
 import com.elevenetc.bodies.SetEnvVars
 import com.elevenetc.projects.AppsManager
@@ -47,6 +48,21 @@ fun Application.module() {
             appsManager.newTag(tag.full_name, tag.ref, tag.repository.clone_url)
 
             call.respond(HttpStatusCode.OK)
+        }
+
+        post("/apps/state") {
+            val body = call.receive(AppId::class)
+        }
+
+        post("/apps/sources/delete") {
+            val body = call.receive(AppId::class)
+
+            if (appsManager.contains(body.appId)) {
+                appsManager.deleteSources(body.appId)
+                call.respond(HttpStatusCode.OK)
+            } else {
+                call.respond(HttpStatusCode.NotFound)
+            }
         }
 
         post("/apps/commands") {

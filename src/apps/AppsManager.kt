@@ -22,6 +22,15 @@ class AppsManager {
         return apps.keys.contains(appId)
     }
 
+    fun setAppState(appId: String, state: String) {
+        val app = apps[appId]!!
+
+        if (state == App.State.RUNNING && app.data.state != App.State.RUNNING) {
+            app.updateState(state)
+            app.run()
+        }
+    }
+
     fun setCommands(appId: String, commands: App.AppData.Commands) {
         apps.filter {
             it.key == appId
@@ -69,17 +78,17 @@ class AppsManager {
 
         apps.forEach { _, app ->
 
-            if (app.data.state == App.State.NEW.toString()) {
+            if (app.data.state == App.State.NEW) {
                 app.clone()
-            } else if (app.data.state == App.State.CLONED.toString() ||
-                app.data.state == App.State.BUILDING.toString()
+            } else if (app.data.state == App.State.CLONED ||
+                app.data.state == App.State.BUILDING
             ) {
                 app.build()
                 //app.run()
             } else if (
-                app.data.state == App.State.BUILT.toString() ||
-                app.data.state == App.State.FINISHED.toString() ||
-                app.data.state == App.State.RUNNING.toString()
+                app.data.state == App.State.BUILT ||
+                app.data.state == App.State.FINISHED ||
+                app.data.state == App.State.RUNNING
             ) {
                 //app.run()
             }
@@ -93,9 +102,6 @@ class AppsManager {
 
         if (!fileSystem.exists(appDir)) {
             val state = App.AppData(appId, tag, appDir, appDirSources, cloneUrl)
-
-            fileSystem.createDirectory(appDir)
-            fileSystem.createDirectory(appDirSources)
 
             val app = App(state)
             apps[app.data.id] = app

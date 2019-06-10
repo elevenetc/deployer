@@ -7,12 +7,16 @@ import com.elevenetc.bodies.EnvVar
 
 class App(val data: AppData) {
 
-    private val logger = Logger(data.appDir, "logs.txt")
+    private val logger = Logger(data.appDir, "app-logs.txt")
     private val fileSystem = FileSystem()
+
+    init {
+
+    }
 
     fun clone() {
         updateState(State.CLONING)
-        runCommand("git clone --branch ${data.tag} ${data.cloneUrl} --depth 1 ${data.appSourcesDir}")
+        runCommand("git clone --branch ${data.tag} ${data.cloneUrl} --depth 1")
         updateState(State.CLONED)
     }
 
@@ -22,8 +26,14 @@ class App(val data: AppData) {
         updateState(State.BUILT)
     }
 
-    fun updateState(s: State) {
-        logger.log("data", s.toString())
+    fun updateState(s: String) {
+        logger.log("state", s)
+
+        if (s == State.NEW) {
+            fileSystem.createDirectory(data.appDir)
+            fileSystem.createDirectory(data.appSourcesDir)
+        }
+
         data.update(s)
         persist()
     }
@@ -48,6 +58,15 @@ class App(val data: AppData) {
     fun run() {
         updateState(State.RUNNING)
         data.commands.startCommands.forEach { cmd -> runCommand(cmd) }
+        updateState(State.FINISHING)
+        data.commands.onFinishCommands.forEach { cmd -> runCommand(cmd) }
+        updateState(State.FINISHED)
+    }
+
+    fun stop() {
+        updateState(State.STOPPING)
+        data.commands.stopCommands.forEach { cmd -> runCommand(cmd) }
+        updateState(State.FINISHING)
         data.commands.onFinishCommands.forEach { cmd -> runCommand(cmd) }
         updateState(State.FINISHED)
     }
@@ -62,11 +81,11 @@ class App(val data: AppData) {
         val envVars: MutableList<EnvVar> = mutableListOf()
     ) {
 
-        var state: String = State.NEW.toString()
+        var state: String = State.NEW
         val stateFilePath = "$appDir/$DATA_JSON_NAME"
 
-        fun update(state: State) {
-            this.state = state.toString()
+        fun update(state: String) {
+            this.state = state
         }
 
         data class Commands(
@@ -81,14 +100,19 @@ class App(val data: AppData) {
         const val DATA_JSON_NAME = "app-data.json"
     }
 
-    enum class State {
-        NEW,
-        CLONING,
-        CLONED,
-        BUILDING,
-        BUILT,
-        RUNNING,
-        FINISHED
+    class State {
+
+        companion object {
+            const val NEW = "new"
+            const val CLONING = "cloning"
+            const val CLONED = "cloned"
+            const val BUILDING = "building"
+            const val BUILT = "built"
+            const val RUNNING = "running"
+            const val STOPPING = "stopping"
+            const val FINISHING = "finishing"
+            const val FINISHED = "finished"
+        }
     }
 
 }
