@@ -74,7 +74,7 @@ class AppsManager {
         }.forEach { _, app ->
             app.data.envVars.clear()
             app.data.envVars.addAll(envVars)
-            app.persist()
+            app.persistEnvVars()
         }
     }
 
@@ -117,15 +117,16 @@ class AppsManager {
         }
     }
 
-    fun newVersion(appId: String, tag: String, cloneUrl: String) {
+    fun newVersion(userName: String, appName: String, tag: String, cloneUrl: String) {
 
+        val appId = "$userName/$appName"
         val appDir = "$appsDir/$appId"
         val appDirSources = "$appDir/sources"
 
         if (apps.containsKey(appId)) {
             println("update version...")
         } else {
-            val state = App.AppData(appId, tag, appDir, appDirSources, cloneUrl)
+            val state = App.AppData(appId, appName, userName, tag, appDir, appDirSources, cloneUrl)
 
             val app = App(state)
             apps[app.data.id] = app

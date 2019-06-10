@@ -28,11 +28,14 @@ class FileSystem {
         }
     }
 
-    fun writeFile(obj: Any, path: String) {
-        val raw = gson.toJson(obj)
+    fun writeFile(data: String, path: String) {
         val writer = PrintWriter(path, "UTF-8")
-        writer.println(raw)
+        writer.println(data)
         writer.close()
+    }
+
+    fun writeFile(obj: Any, path: String) {
+        writeFile(gson.toJson(obj), path)
     }
 
     fun createDirectory(dir: String) {

@@ -12,7 +12,7 @@ class App(val data: AppData) {
 
     fun clone() {
         updateState(State.CLONING)
-        runCommand("git clone --branch ${data.tag} ${data.cloneUrl} --depth 1")
+        runCommand("git clone --branch ${data.tag} ${data.cloneUrl} --depth 1 ${data.appSourcesDir}", "")
         updateState(State.CLONED)
     }
 
@@ -31,22 +31,28 @@ class App(val data: AppData) {
         }
 
         data.update(s)
-        persist()
+        persistData()
     }
 
-    fun persist() {
+    fun persistEnvVars() {
+        fileSystem.writeFile(dockerEnvVars(), data.appSourcesDir + "/.env")
+    }
+
+    fun persistData() {
         fileSystem.writeFile(data, data.stateFilePath)
     }
 
-    private fun runCommand(cmd: String, envVars: Map<String, String> = emptyMap()) {
-        logger.log("cmd", cmd)
-        println("executing: $cmd")
+    private fun runCommand(
+        cmd: String,
+        workingDir: String = System.getProperty("user.dir") + "/" + data.appSourcesDir + "/"
+    ) {
+        logger.log("cmd", workingDir + cmd)
+        println("executing: $workingDir$cmd")
         println(
             "result: " +
                     CommandExecutor().run(
                         cmd,
-                        System.getProperty("user.dir") + "/" + data.appSourcesDir + "/",
-                        envVars
+                        workingDir
                     )
         )
     }
@@ -67,8 +73,18 @@ class App(val data: AppData) {
         updateState(State.FINISHED)
     }
 
+    fun dockerEnvVars(): String {
+        val sb = StringBuilder()
+        data.envVars.forEach {
+            sb.append(it.key + "=" + it.value + "\n")
+        }
+        return sb.toString()
+    }
+
     class AppData(
         val id: String,
+        val appName: String,
+        val userName: String,
         val tag: String,
         val appDir: String,
         val appSourcesDir: String,

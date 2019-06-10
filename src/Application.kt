@@ -25,8 +25,6 @@ import kotlinx.html.ul
 
 fun main(args: Array<String>): Unit = io.ktor.server.netty.EngineMain.main(args)
 
-data class KeyValueDto(val key: String, val value: String)
-data class DtoApp(val id: String, val name: String, val envVars: List<KeyValueDto>)
 
 @Suppress("unused") // Referenced in application.conf
 fun Application.module() {
@@ -46,7 +44,9 @@ fun Application.module() {
             call.respond(HttpStatusCode.OK)
 
             if (tag.ref.startsWith("release-")) {
-                appsManager.newVersion(tag.full_name, tag.ref, tag.repository.clone_url)
+                val userName = tag.full_name.split("/")[0]
+                val appName = tag.full_name.split("/")[1]
+                appsManager.newVersion(userName, appName, tag.ref, tag.repository.clone_url)
             } else {
                 logger.log("skip-tag", tag.ref)
             }
