@@ -22,6 +22,22 @@ class AppsManager {
         return apps.keys.contains(appId)
     }
 
+    fun setCommands(appId: String, commands: App.AppData.Commands) {
+        apps.filter {
+            it.key == appId
+        }.forEach { _, app ->
+            app.data.commands.buildCommands.clear()
+            app.data.commands.startCommands.clear()
+            app.data.commands.stopCommands.clear()
+            app.data.commands.onFinishCommands.clear()
+
+            app.data.commands.buildCommands.addAll(commands.buildCommands)
+            app.data.commands.startCommands.addAll(commands.startCommands)
+            app.data.commands.stopCommands.addAll(commands.stopCommands)
+            app.data.commands.onFinishCommands.addAll(commands.onFinishCommands)
+        }
+    }
+
     fun setEnvVars(appId: String, envVars: List<EnvVar>) {
         apps.filter {
             it.key == appId
@@ -32,10 +48,10 @@ class AppsManager {
         }
     }
 
-    fun delete(name: String) {
-        if (apps.containsKey(name)) {
-
-        }
+    fun deleteSources(appId: String) {
+        val app = apps[appId]!!
+        fileSystem.delete(app.data.appSourcesDir)
+        app.updateState(App.State.NEW)
     }
 
     fun apps(): Map<String, App> {
@@ -52,7 +68,10 @@ class AppsManager {
             }
 
         apps.forEach { _, app ->
-            if (app.data.state == App.State.CLONED.toString() ||
+
+            if (app.data.state == App.State.NEW.toString()) {
+                app.clone()
+            } else if (app.data.state == App.State.CLONED.toString() ||
                 app.data.state == App.State.BUILDING.toString()
             ) {
                 app.build()

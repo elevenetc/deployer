@@ -13,6 +13,10 @@ class FileSystem {
         return File(dir).exists()
     }
 
+    fun delete(dir: String) {
+        File(dir).deleteRecursively()
+    }
+
     fun <T> getFile(path: String, clazz: Class<T>): T? {
         return if (exists(path)) {
             val reader = FileReader(File(path))

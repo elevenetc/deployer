@@ -12,16 +12,13 @@ class App(val data: AppData) {
 
     fun clone() {
         updateState(State.CLONING)
-        println(
-            CommandExecutor().run(
-                "git clone --branch ${data.tag} ${data.cloneUrl} --depth 1 ${data.appSourcesDir}"
-            )
-        )
+        runCommand("git clone --branch ${data.tag} ${data.cloneUrl} --depth 1 ${data.appSourcesDir}")
         updateState(State.CLONED)
     }
 
     fun build() {
         updateState(State.BUILDING)
+        data.commands.buildCommands.forEach { cmd -> runCommand(cmd) }
         updateState(State.BUILT)
     }
 
@@ -50,7 +47,8 @@ class App(val data: AppData) {
 
     fun run() {
         updateState(State.RUNNING)
-        runCommand("docker-compose up")
+        data.commands.startCommands.forEach { cmd -> runCommand(cmd) }
+        data.commands.onFinishCommands.forEach { cmd -> runCommand(cmd) }
         updateState(State.FINISHED)
     }
 
@@ -60,11 +58,8 @@ class App(val data: AppData) {
         val appDir: String,
         val appSourcesDir: String,
         val cloneUrl: String,
-        val envVars: MutableList<EnvVar> = mutableListOf(),
-        val buildCommands: MutableList<String> = mutableListOf(),
-        val startCommands: MutableList<String> = mutableListOf(),
-        val stopCommands: MutableList<String> = mutableListOf(),
-        val onFinishCommands: MutableList<String> = mutableListOf()
+        val commands: Commands = Commands(),
+        val envVars: MutableList<EnvVar> = mutableListOf()
     ) {
 
         var state: String = State.NEW.toString()
@@ -74,6 +69,12 @@ class App(val data: AppData) {
             this.state = state.toString()
         }
 
+        data class Commands(
+            val buildCommands: MutableList<String> = mutableListOf(),
+            val startCommands: MutableList<String> = mutableListOf(),
+            val stopCommands: MutableList<String> = mutableListOf(),
+            val onFinishCommands: MutableList<String> = mutableListOf()
+        )
     }
 
     companion object {

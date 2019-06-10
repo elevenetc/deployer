@@ -1,5 +1,6 @@
 package com.elevenetc
 
+import com.elevenetc.bodies.SetCommands
 import com.elevenetc.bodies.SetEnvVars
 import com.elevenetc.projects.AppsManager
 import io.ktor.application.Application
@@ -48,11 +49,22 @@ fun Application.module() {
             call.respond(HttpStatusCode.OK)
         }
 
-        post("/apps/env-vars") {
-            val vars = call.receive(SetEnvVars::class)
+        post("/apps/commands") {
+            val body = call.receive(SetCommands::class)
 
-            if (appsManager.contains(vars.appId)) {
-                appsManager.setEnvVars(vars.appId, vars.envVars)
+            if (appsManager.contains(body.appId)) {
+                appsManager.setCommands(body.appId, body.commands)
+                call.respond(HttpStatusCode.OK)
+            } else {
+                call.respond(HttpStatusCode.NotFound)
+            }
+        }
+
+        post("/apps/env-vars") {
+            val body = call.receive(SetEnvVars::class)
+
+            if (appsManager.contains(body.appId)) {
+                appsManager.setEnvVars(body.appId, body.envVars)
                 call.respond(HttpStatusCode.OK)
             } else {
                 call.respond(HttpStatusCode.NotFound)
@@ -81,10 +93,6 @@ fun Application.module() {
         static("static") {
             resources("static")
             default("index.html")
-        }
-
-        get("/json/gson") {
-            call.respond(mapOf("hello" to "world"))
         }
     }
 }
