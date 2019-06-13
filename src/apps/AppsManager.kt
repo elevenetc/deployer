@@ -15,7 +15,10 @@ class AppsManager {
 
     init {
         fileSystem.createDirectory(appsDir)
-        initApps()
+
+        Thread {
+            initApps()
+        }.start()
     }
 
     fun contains(appId: String): Boolean {
@@ -65,6 +68,8 @@ class AppsManager {
             app.data.commands.startCommands.addAll(commands.startCommands)
             app.data.commands.stopCommands.addAll(commands.stopCommands)
             app.data.commands.onFinishCommands.addAll(commands.onFinishCommands)
+
+            app.persistData()
         }
     }
 

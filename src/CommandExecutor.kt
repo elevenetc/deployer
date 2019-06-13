@@ -15,13 +15,26 @@ class CommandExecutor {
         envVars: Map<String, String> = emptyMap()
     ): List<String> {
 
-
         var process = newExec(envVars, cmd, workingDir)
-        //var process = oldExec(envVars, cmd, workingDir)
+        val stdInput = BufferedReader(InputStreamReader(process.inputStream))
+        val stdError = BufferedReader(InputStreamReader(process.errorStream))
+        val result = mutableListOf<String>()
 
-        val result = readLines(process.inputStream)
+        val buffer = CharArray(4096)
 
-        println("exit: " + process.exitValue())
+        var count = stdInput.read(buffer)
+        while (count != -1) {
+            val data = String(buffer, 0, count)
+            println(data)
+            count = stdInput.read(buffer)
+        }
+
+        count = stdError.read(buffer)
+        while (count != -1) {
+            val data = String(buffer, 0, count)
+            println(data)
+            count = stdError.read(buffer)
+        }
 
         if (process.exitValue() != 0) {
             println("Result exit message: \n$result")
