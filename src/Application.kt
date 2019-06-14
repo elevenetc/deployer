@@ -2,6 +2,7 @@ package com.elevenetc
 
 import com.elevenetc.bodies.*
 import com.elevenetc.projects.AppsManager
+import com.google.gson.Gson
 import io.ktor.application.Application
 import io.ktor.application.call
 import io.ktor.application.install
@@ -12,8 +13,9 @@ import io.ktor.http.HttpStatusCode
 import io.ktor.http.content.default
 import io.ktor.http.content.resources
 import io.ktor.http.content.static
-import io.ktor.request.path
+import io.ktor.http.parseUrlEncodedParameters
 import io.ktor.request.receive
+import io.ktor.request.receiveText
 import io.ktor.response.respond
 import io.ktor.routing.get
 import io.ktor.routing.post
@@ -36,16 +38,19 @@ fun Application.module() {
         gson {}
     }
 
+    val gson = Gson()
+
     routing {
 
         post("/web-hooks/github") {
-            logger.log("request", call.request.path())
-            val tag = call.receive(GitHubTag::class)
+            val payload = call.receiveText().parseUrlEncodedParameters()["payload"]
+            val tag = gson.fromJson(payload, GitHubTag::class.java)
+
             call.respond(HttpStatusCode.OK)
 
             if (tag.ref.startsWith("release-")) {
-                val userName = tag.full_name.split("/")[0]
-                val appName = tag.full_name.split("/")[1]
+                val userName = tag.repository.full_name.split("/")[0]
+                val appName = tag.repository.full_name.split("/")[1]
                 appsManager.newVersion(userName, appName, tag.ref, tag.repository.clone_url)
             } else {
                 logger.log("skip-tag", tag.ref)
