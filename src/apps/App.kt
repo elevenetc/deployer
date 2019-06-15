@@ -4,34 +4,74 @@ import com.elevenetc.CommandExecutor
 import com.elevenetc.FileSystem
 import com.elevenetc.Logger
 import com.elevenetc.bodies.EnvVar
+import java.util.concurrent.LinkedBlockingQueue
 
 class App(val data: AppData) {
 
     private val logger = Logger(data.appDir, "app-logs.txt")
     private val fileSystem = FileSystem()
 
+    private val cmdQueue = LinkedBlockingQueue<Cmd>()
+    private val exists = true
+
+    private val processThread = Thread {
+
+        var currentCmd: Cmd? = null
+
+        while (exists) {
+            val command = cmdQueue.take()
+            if (currentCmd != command) {
+                currentCmd = command
+                when (command) {
+                    Cmd.CLONE -> {
+                        updateState(State.CLONING)
+                        runCommand(
+                            "git clone --branch ${data.tag} ${data.cloneUrl} --depth 1 ${data.appSourcesDir}",
+                            ""
+                        )
+                        updateState(State.CLONED)
+                    }
+                    Cmd.BUILD -> {
+                        updateState(State.BUILDING)
+                        data.commands.buildCommands.forEach { cmd -> runCommand(cmd) }
+                        updateState(State.BUILT)
+                    }
+                    Cmd.RUN -> {
+                        updateState(State.RUNNING)
+                        data.commands.startCommands.forEach { cmd -> runCommand(cmd) }
+                        updateState(State.FINISHING)
+                        data.commands.onFinishCommands.forEach { cmd -> runCommand(cmd) }
+                        updateState(State.FINISHED)
+                    }
+                    Cmd.STOP -> {
+                        updateState(State.STOPPING)
+                        data.commands.stopCommands.forEach { cmd -> runCommand(cmd) }
+                        updateState(State.FINISHING)
+                        data.commands.onFinishCommands.forEach { cmd -> runCommand(cmd) }
+                        updateState(State.FINISHED)
+                    }
+                }
+            }
+        }
+    }.apply {
+        name = "app-${data.appName}"
+        start()
+    }
+
     fun clone() {
-        updateState(State.CLONING)
-        runCommand("git clone --branch ${data.tag} ${data.cloneUrl} --depth 1 ${data.appSourcesDir}", "")
-        updateState(State.CLONED)
+        cmdQueue.put(Cmd.CLONE)
     }
 
     fun build() {
-        updateState(State.BUILDING)
-        data.commands.buildCommands.forEach { cmd -> runCommand(cmd) }
-        updateState(State.BUILT)
+        cmdQueue.put(Cmd.BUILD)
     }
 
-    fun updateState(s: String) {
-        logger.log("state", s)
+    fun run() {
+        cmdQueue.put(Cmd.RUN)
+    }
 
-        if (s == State.NEW) {
-            fileSystem.createDirectory(data.appDir)
-            fileSystem.createDirectory(data.appSourcesDir)
-        }
-
-        data.update(s)
-        persistData()
+    fun stop() {
+        cmdQueue.put(Cmd.STOP)
     }
 
     fun persistEnvVars() {
@@ -57,20 +97,16 @@ class App(val data: AppData) {
         )
     }
 
-    fun run() {
-        updateState(State.RUNNING)
-        data.commands.startCommands.forEach { cmd -> runCommand(cmd) }
-        updateState(State.FINISHING)
-        data.commands.onFinishCommands.forEach { cmd -> runCommand(cmd) }
-        updateState(State.FINISHED)
-    }
+    fun updateState(s: String) {
+        logger.log("state", s)
 
-    fun stop() {
-        updateState(State.STOPPING)
-        data.commands.stopCommands.forEach { cmd -> runCommand(cmd) }
-        updateState(State.FINISHING)
-        data.commands.onFinishCommands.forEach { cmd -> runCommand(cmd) }
-        updateState(State.FINISHED)
+        if (s == State.NEW) {
+            fileSystem.createDirectory(data.appDir)
+            fileSystem.createDirectory(data.appSourcesDir)
+        }
+
+        data.update(s)
+        persistData()
     }
 
     fun dockerEnvVars(): String {
@@ -110,6 +146,10 @@ class App(val data: AppData) {
 
     companion object {
         const val DATA_JSON_NAME = "app-data.json"
+    }
+
+    private enum class Cmd {
+        CLONE, BUILD, RUN, STOP
     }
 
     class State {

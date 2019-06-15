@@ -20,6 +20,7 @@ import io.ktor.response.respond
 import io.ktor.routing.get
 import io.ktor.routing.post
 import io.ktor.routing.routing
+import io.reactivex.Observable
 import kotlinx.html.body
 import kotlinx.html.h1
 import kotlinx.html.li
@@ -43,7 +44,8 @@ fun Application.module() {
     routing {
 
         post("/web-hooks/github") {
-            val payload = call.receiveText().parseUrlEncodedParameters()["payload"]
+            val parseUrlEncodedParameters = call.receiveText().parseUrlEncodedParameters()
+            val payload = parseUrlEncodedParameters["payload"]
             val tag = gson.fromJson(payload, GitHubTag::class.java)
 
             call.respond(HttpStatusCode.OK)
@@ -51,6 +53,7 @@ fun Application.module() {
             if (tag.ref.startsWith("release-")) {
                 val userName = tag.repository.full_name.split("/")[0]
                 val appName = tag.repository.full_name.split("/")[1]
+
                 appsManager.newVersion(userName, appName, tag.ref, tag.repository.clone_url)
             } else {
                 logger.log("skip-tag", tag.ref)
