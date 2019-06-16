@@ -28,6 +28,9 @@ class Logger(
     }
 
     fun log(tag: String, message: String) {
+
+        println("$tag: $message")
+
         PrintWriter(FileOutputStream(File(filePath), true)).apply {
             println(gson.toJson(Message(tag, message)))
             close()

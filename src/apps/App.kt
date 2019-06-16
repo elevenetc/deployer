@@ -64,7 +64,6 @@ class App(val data: AppData) {
                         }
                     }
                 } catch (t: Throwable) {
-                    logger.log("cmd", t)
                     logger.log("process", t)
                 }
 
@@ -126,6 +125,7 @@ class App(val data: AppData) {
     }
 
     fun updateState(s: String) {
+
         logger.log("state", s)
 
         if (s == State.NEW) {

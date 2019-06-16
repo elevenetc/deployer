@@ -14,13 +14,13 @@ import io.ktor.http.content.default
 import io.ktor.http.content.resources
 import io.ktor.http.content.static
 import io.ktor.http.parseUrlEncodedParameters
+import io.ktor.request.path
 import io.ktor.request.receive
 import io.ktor.request.receiveText
 import io.ktor.response.respond
 import io.ktor.routing.get
 import io.ktor.routing.post
 import io.ktor.routing.routing
-import io.reactivex.Observable
 import kotlinx.html.body
 import kotlinx.html.h1
 import kotlinx.html.li
@@ -44,6 +44,9 @@ fun Application.module() {
     routing {
 
         post("/web-hooks/github") {
+
+            logger.log("request", "start: " + call.request.path())
+
             val parseUrlEncodedParameters = call.receiveText().parseUrlEncodedParameters()
             val payload = parseUrlEncodedParameters["payload"]
             val tag = gson.fromJson(payload, GitHubTag::class.java)
@@ -55,12 +58,16 @@ fun Application.module() {
                 val appName = tag.repository.full_name.split("/")[1]
 
                 appsManager.newVersion(userName, appName, tag.ref, tag.repository.clone_url)
+
+                logger.log("request", "end: " + call.request.path())
             } else {
                 logger.log("skip-tag", tag.ref)
             }
         }
 
         post("/apps/state") {
+
+            logger.log("request", "start: " + call.request.path())
 
             val body = call.receive(SetState::class)
             val appId = body.appId
@@ -74,12 +81,17 @@ fun Application.module() {
                     call.respond(HttpStatusCode.BadRequest, FailedAction(body.action, appsManager.getAppState(appId)))
                 }
 
+                logger.log("request", "end: " + call.request.path())
+
             } else {
                 call.respond(HttpStatusCode.NotFound)
             }
         }
 
         post("/apps/sources/delete") {
+
+            logger.log("request", "start: " + call.request.path())
+
             val body = call.receive(AppId::class)
 
             if (appsManager.contains(body.appId)) {
@@ -88,9 +100,14 @@ fun Application.module() {
             } else {
                 call.respond(HttpStatusCode.NotFound)
             }
+
+            logger.log("request", "end: " + call.request.path())
         }
 
         post("/apps/commands") {
+
+            logger.log("request", "start: " + call.request.path())
+
             val body = call.receive(SetCommands::class)
 
             if (appsManager.contains(body.appId)) {
@@ -99,9 +116,14 @@ fun Application.module() {
             } else {
                 call.respond(HttpStatusCode.NotFound)
             }
+
+            logger.log("request", "end: " + call.request.path())
         }
 
         post("/apps/env-vars") {
+
+            logger.log("request", "start: " + call.request.path())
+
             val body = call.receive(SetEnvVars::class)
 
             if (appsManager.contains(body.appId)) {
@@ -110,12 +132,19 @@ fun Application.module() {
             } else {
                 call.respond(HttpStatusCode.NotFound)
             }
+
+            logger.log("request", "end: " + call.request.path())
         }
 
         get("/apps") {
+
+            logger.log("request", "start: " + call.request.path())
+
             call.respond(appsManager.apps().values.map {
                 it.data
             })
+
+            logger.log("request", "end: " + call.request.path())
         }
 
         get("/html-dsl") {
