@@ -64,7 +64,8 @@ class App(val data: AppData) {
                         }
                     }
                 } catch (t: Throwable) {
-                    logger.log("error", (if (t.message != null) t.message!! else "no error messaged"))
+                    logger.log("cmd", t)
+                    logger.log("process", t)
                 }
 
             }
@@ -104,15 +105,22 @@ class App(val data: AppData) {
     ) {
 
         commandsPool.submit {
-            logger.log("cmd", workingDir + cmd)
-            println("executing: $workingDir$cmd")
-            println(
-                "result: " +
-                        CommandExecutor().run(
-                            cmd,
-                            workingDir
-                        )
-            )
+
+            try {
+                logger.log("cmd", workingDir + cmd)
+                println("executing: $workingDir$cmd")
+                println(
+                    "result: " +
+                            CommandExecutor().run(
+                                cmd,
+                                workingDir
+                            )
+                )
+            } catch (t: Throwable) {
+                logger.log("cmd", t)
+            }
+
+
         }
 
     }

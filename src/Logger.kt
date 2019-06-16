@@ -4,6 +4,7 @@ import com.google.gson.Gson
 import java.io.File
 import java.io.FileOutputStream
 import java.io.PrintWriter
+import java.io.StringWriter
 import java.util.*
 
 
@@ -18,6 +19,12 @@ class Logger(
 
     init {
         checkFile()
+    }
+
+    fun log(tag: String, t: Throwable) {
+        val writer = StringWriter()
+        t.printStackTrace(PrintWriter(writer))
+        log("error-$tag", writer.toString())
     }
 
     fun log(tag: String, message: String) {
