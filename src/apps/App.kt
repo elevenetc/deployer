@@ -4,7 +4,9 @@ import com.elevenetc.CommandExecutor
 import com.elevenetc.FileSystem
 import com.elevenetc.Logger
 import com.elevenetc.bodies.EnvVar
+import java.util.concurrent.Executors
 import java.util.concurrent.LinkedBlockingQueue
+import java.util.concurrent.ThreadFactory
 
 class App(val data: AppData) {
 
@@ -14,6 +16,14 @@ class App(val data: AppData) {
     private val cmdQueue = LinkedBlockingQueue<Cmd>()
     private val exists = true
 
+    private val commandsPool = Executors.newSingleThreadExecutor(object : ThreadFactory {
+        override fun newThread(r: Runnable): Thread {
+            return Thread(r).apply {
+                name = "commands-thread"
+            }
+        }
+    })
+
     private val processThread = Thread {
 
         var currentCmd: Cmd? = null
@@ -22,35 +32,41 @@ class App(val data: AppData) {
             val command = cmdQueue.take()
             if (currentCmd != command) {
                 currentCmd = command
-                when (command) {
-                    Cmd.CLONE -> {
-                        updateState(State.CLONING)
-                        runCommand(
-                            "git clone --branch ${data.tag} ${data.cloneUrl} --depth 1 ${data.appSourcesDir}",
-                            ""
-                        )
-                        updateState(State.CLONED)
+
+                try {
+                    when (command) {
+                        Cmd.CLONE -> {
+                            updateState(State.CLONING)
+                            runCommand(
+                                "git clone --branch ${data.tag} ${data.cloneUrl} --depth 1 ${data.appSourcesDir}",
+                                ""
+                            )
+                            updateState(State.CLONED)
+                        }
+                        Cmd.BUILD -> {
+                            updateState(State.BUILDING)
+                            data.commands.buildCommands.forEach { cmd -> runCommand(cmd) }
+                            updateState(State.BUILT)
+                        }
+                        Cmd.RUN -> {
+                            updateState(State.RUNNING)
+                            data.commands.startCommands.forEach { cmd -> runCommand(cmd) }
+                            updateState(State.FINISHING)
+                            data.commands.onFinishCommands.forEach { cmd -> runCommand(cmd) }
+                            updateState(State.FINISHED)
+                        }
+                        Cmd.STOP -> {
+                            updateState(State.STOPPING)
+                            data.commands.stopCommands.forEach { cmd -> runCommand(cmd) }
+                            updateState(State.FINISHING)
+                            data.commands.onFinishCommands.forEach { cmd -> runCommand(cmd) }
+                            updateState(State.FINISHED)
+                        }
                     }
-                    Cmd.BUILD -> {
-                        updateState(State.BUILDING)
-                        data.commands.buildCommands.forEach { cmd -> runCommand(cmd) }
-                        updateState(State.BUILT)
-                    }
-                    Cmd.RUN -> {
-                        updateState(State.RUNNING)
-                        data.commands.startCommands.forEach { cmd -> runCommand(cmd) }
-                        updateState(State.FINISHING)
-                        data.commands.onFinishCommands.forEach { cmd -> runCommand(cmd) }
-                        updateState(State.FINISHED)
-                    }
-                    Cmd.STOP -> {
-                        updateState(State.STOPPING)
-                        data.commands.stopCommands.forEach { cmd -> runCommand(cmd) }
-                        updateState(State.FINISHING)
-                        data.commands.onFinishCommands.forEach { cmd -> runCommand(cmd) }
-                        updateState(State.FINISHED)
-                    }
+                } catch (t: Throwable) {
+                    logger.log("error", (if (t.message != null) t.message!! else "no error messaged"))
                 }
+
             }
         }
     }.apply {
@@ -86,15 +102,19 @@ class App(val data: AppData) {
         cmd: String,
         workingDir: String = System.getProperty("user.dir") + "/" + data.appSourcesDir + "/"
     ) {
-        logger.log("cmd", workingDir + cmd)
-        println("executing: $workingDir$cmd")
-        println(
-            "result: " +
-                    CommandExecutor().run(
-                        cmd,
-                        workingDir
-                    )
-        )
+
+        commandsPool.submit {
+            logger.log("cmd", workingDir + cmd)
+            println("executing: $workingDir$cmd")
+            println(
+                "result: " +
+                        CommandExecutor().run(
+                            cmd,
+                            workingDir
+                        )
+            )
+        }
+
     }
 
     fun updateState(s: String) {
