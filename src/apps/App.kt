@@ -5,89 +5,70 @@ import com.elevenetc.FileSystem
 import com.elevenetc.Logger
 import com.elevenetc.bodies.EnvVar
 import java.util.concurrent.Executors
-import java.util.concurrent.LinkedBlockingQueue
-import java.util.concurrent.ThreadFactory
 
 class App(val data: AppData) {
 
     private val logger = Logger(data.appDir, "app-logs.txt")
     private val fileSystem = FileSystem()
 
-    private val cmdQueue = LinkedBlockingQueue<Cmd>()
-    private val exists = true
-
-    private val commandsPool = Executors.newSingleThreadExecutor(object : ThreadFactory {
-        override fun newThread(r: Runnable): Thread {
-            return Thread(r).apply {
-                name = "commands-thread"
-            }
+    private val commandsPool = Executors.newFixedThreadPool(10) { r ->
+        Thread(r).apply {
+            name = "commands-thread"
         }
-    })
+    }
 
-    private val processThread = Thread {
+    private fun stopTask() {
+        updateState(State.STOPPING)
+        data.commands.stopCommands.forEach { cmd -> runCommand(cmd) }
+        updateState(State.FINISHING)
+        data.commands.onFinishCommands.forEach { cmd -> runCommand(cmd) }
+        updateState(State.FINISHED)
+    }
 
-        var currentCmd: Cmd? = null
+    private fun runTask() {
+        updateState(State.RUNNING)
+        data.commands.startCommands.forEach { cmd -> runCommand(cmd) }
+        updateState(State.FINISHING)
+        data.commands.onFinishCommands.forEach { cmd -> runCommand(cmd) }
+        updateState(State.FINISHED)
+    }
 
-        while (exists) {
-            val command = cmdQueue.take()
-            if (currentCmd != command) {
-                currentCmd = command
+    private fun buildTask() {
+        updateState(State.BUILDING)
+        data.commands.buildCommands.forEach { cmd -> runCommand(cmd) }
+        updateState(State.BUILT)
+    }
 
-                try {
-                    when (command) {
-                        Cmd.CLONE -> {
-                            updateState(State.CLONING)
-                            runCommand(
-                                "git clone --branch ${data.tag} ${data.cloneUrl} --depth 1 ${data.appSourcesDir}",
-                                ""
-                            )
-                            updateState(State.CLONED)
-                        }
-                        Cmd.BUILD -> {
-                            updateState(State.BUILDING)
-                            data.commands.buildCommands.forEach { cmd -> runCommand(cmd) }
-                            updateState(State.BUILT)
-                        }
-                        Cmd.RUN -> {
-                            updateState(State.RUNNING)
-                            data.commands.startCommands.forEach { cmd -> runCommand(cmd) }
-                            updateState(State.FINISHING)
-                            data.commands.onFinishCommands.forEach { cmd -> runCommand(cmd) }
-                            updateState(State.FINISHED)
-                        }
-                        Cmd.STOP -> {
-                            updateState(State.STOPPING)
-                            data.commands.stopCommands.forEach { cmd -> runCommand(cmd) }
-                            updateState(State.FINISHING)
-                            data.commands.onFinishCommands.forEach { cmd -> runCommand(cmd) }
-                            updateState(State.FINISHED)
-                        }
-                    }
-                } catch (t: Throwable) {
-                    logger.log("process", t)
-                }
+    private fun cloneTask() {
+        updateState(State.CLONING)
+        runCommand(
+            "git clone --branch ${data.tag} ${data.cloneUrl} --depth 1 ${data.appSourcesDir}",
+            ""
+        )
+        updateState(State.CLONED)
+    }
 
-            }
+    fun buildAndRun(){
+        commandsPool.submit {
+            buildTask()
+            runTask()
         }
-    }.apply {
-        name = "app-${data.appName}"
-        start()
     }
 
     fun clone() {
-        cmdQueue.put(Cmd.CLONE)
+        commandsPool.submit { cloneTask() }
     }
 
     fun build() {
-        cmdQueue.put(Cmd.BUILD)
+        commandsPool.submit { buildTask() }
     }
 
     fun run() {
-        cmdQueue.put(Cmd.RUN)
+        commandsPool.submit { runTask() }
     }
 
     fun stop() {
-        cmdQueue.put(Cmd.STOP)
+        commandsPool.submit { stopTask() }
     }
 
     fun persistEnvVars() {
@@ -116,7 +97,7 @@ class App(val data: AppData) {
                             )
                 )
             } catch (t: Throwable) {
-                logger.log("cmd", t)
+                logger.log("cmd: $cmd", t)
             }
 
 
@@ -174,10 +155,6 @@ class App(val data: AppData) {
 
     companion object {
         const val DATA_JSON_NAME = "app-data.json"
-    }
-
-    private enum class Cmd {
-        CLONE, BUILD, RUN, STOP
     }
 
     class State {

@@ -110,8 +110,7 @@ class AppsManager {
                 app.data.state == App.State.CLONED ||
                 app.data.state == App.State.BUILDING
             ) {
-                app.build()
-                app.run()
+                app.buildAndRun()
             } else if (
                 app.data.state == App.State.BUILT ||
                 app.data.state == App.State.FINISHED ||

@@ -36,6 +36,8 @@ class CommandExecutor {
             count = stdError.read(buffer)
         }
 
+        process.waitFor()
+
         if (process.exitValue() != 0) {
             println("Result exit message: \n$result")
             println("Error exit message: \n" + readLines(process.errorStream))
