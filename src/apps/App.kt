@@ -35,7 +35,15 @@ class App(val data: AppData) {
 
     private fun buildTask() {
         updateState(State.BUILDING)
-        data.commands.buildCommands.forEach { cmd -> runCommand(cmd) }
+
+        if (!data.commands.buildCommands.isEmpty()) {
+            var result = 0
+            data.commands.buildCommands.forEach { cmd ->
+                result += runCommand(cmd)
+            }
+            data.isBuilt = result == 0
+        }
+
         updateState(State.BUILT)
     }
 
@@ -45,11 +53,20 @@ class App(val data: AppData) {
             "git clone --branch ${data.tag} ${data.cloneUrl} --depth 1 ${data.appSourcesDir}",
             ""
         )
+        data.isCloned = true
         updateState(State.CLONED)
     }
 
-    fun buildAndRun(){
+    fun buildAndRun() {
         commandsPool.submit {
+            buildTask()
+            runTask()
+        }
+    }
+
+    fun cloneBuildRun() {
+        commandsPool.submit {
+            cloneTask()
             buildTask()
             runTask()
         }
@@ -82,27 +99,22 @@ class App(val data: AppData) {
     private fun runCommand(
         cmd: String,
         workingDir: String = System.getProperty("user.dir") + "/" + data.appSourcesDir + "/"
-    ) {
+    ): Int {
 
-        commandsPool.submit {
+        var exitValue = 0
 
-            try {
-                logger.log("cmd", workingDir + cmd)
-                println("executing: $workingDir$cmd")
-                println(
-                    "result: " +
-                            CommandExecutor().run(
-                                cmd,
-                                workingDir
-                            )
-                )
-            } catch (t: Throwable) {
-                logger.log("cmd: $cmd", t)
-            }
-
-
+        try {
+            logger.log("cmd", workingDir + cmd)
+            println("executing: $workingDir$cmd")
+            val result = CommandExecutor().run(cmd, workingDir)
+            println("result: $result")
+            exitValue = result.exitValue
+        } catch (t: Throwable) {
+            logger.log("cmd: $cmd", t)
+            exitValue = 666
         }
 
+        return exitValue
     }
 
     fun updateState(s: String) {
@@ -140,6 +152,9 @@ class App(val data: AppData) {
 
         var state: String = State.NEW
         val stateFilePath = "$appDir/$DATA_JSON_NAME"
+
+        var isBuilt = false
+        var isCloned = false
 
         fun update(state: String) {
             this.state = state

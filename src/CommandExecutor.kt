@@ -9,11 +9,13 @@ import kotlin.streams.toList
 
 class CommandExecutor {
 
+    data class Result(val exitValue: Int, val out: List<String>)
+
     fun run(
         cmd: String,
         workingDir: String = "",
         envVars: Map<String, String> = emptyMap()
-    ): List<String> {
+    ): Result {
 
         var process = newExec(envVars, cmd, workingDir)
         val stdInput = BufferedReader(InputStreamReader(process.inputStream))
@@ -44,7 +46,7 @@ class CommandExecutor {
             throw RuntimeException("Command $cmd finished with ${process.exitValue()}")
         }
 
-        return result
+        return Result(process.exitValue(), result)
     }
 
     private fun readLines(stream: InputStream): List<String> {

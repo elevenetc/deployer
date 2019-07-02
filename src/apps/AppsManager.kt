@@ -34,20 +34,16 @@ class AppsManager {
         var success = false
         val app = apps[appId]!!
 
-        if (action == Action.CLONE && app.data.state == App.State.NEW) {
-            app.updateState(App.State.CLONING)
+        if (action == Action.CLONE) {
             app.clone()
             success = true
-        } else if (action == Action.START && (app.data.state == App.State.BUILT || app.data.state == App.State.FINISHED)) {
-            app.updateState(App.State.RUNNING)
+        } else if (action == Action.START) {
             app.run()
             success = true
-        } else if (action == Action.BUILD && app.data.state == App.State.CLONED) {
-            app.updateState(App.State.BUILDING)
+        } else if (action == Action.BUILD) {
             app.build()
             success = true
-        } else if (action == Action.STOP && app.data.state == App.State.RUNNING) {
-            app.updateState(App.State.RUNNING)
+        } else if (action == Action.STOP) {
             app.stop()
             success = true
         }
@@ -104,18 +100,11 @@ class AppsManager {
 
         apps.forEach { _, app ->
 
-            if (app.data.state == App.State.NEW) {
-                app.clone()
-            } else if (
-                app.data.state == App.State.CLONED ||
-                app.data.state == App.State.BUILDING
-            ) {
+            if (!app.data.isCloned) {
+                app.cloneBuildRun()
+            } else if (app.data.isBuilt) {
                 app.buildAndRun()
-            } else if (
-                app.data.state == App.State.BUILT ||
-                app.data.state == App.State.FINISHED ||
-                app.data.state == App.State.RUNNING
-            ) {
+            } else {
                 app.run()
             }
         }
@@ -136,9 +125,7 @@ class AppsManager {
             apps[app.data.id] = app
 
             app.updateState(App.State.NEW)
-            app.clone()
-            app.build()
-            app.run()
+            app.cloneBuildRun()
         }
     }
 
